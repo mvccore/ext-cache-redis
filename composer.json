@@ -1,0 +1,30 @@
+{
+	"name": "mvccore/ext-cache-redis",
+	"type": "library",
+	"description": "MvcCore - Extension - Cache - Redis - Redis cache implementation extension.",
+	"keywords": [
+		"mvc", 
+		"mvccore", 
+		"framework", 
+		"extension", 
+		"plugin", 
+		"plug-in", 
+		"ext", 
+		"cache", 
+		"store",
+		"redis"
+	],
+	"license": ["BSD-3-Clause"],
+	"authors": [{
+		"name": "Tom Flidr",
+		"homepage": "https://github.com/tomFlidr"
+	}],
+	"require": {
+		"php": ">=5.4.0",
+		"mvccore/ext-cache": "dev-master"
+	},
+	"autoload": {
+		"classmap": ["src/"]
+	},
+	"minimum-stability": "dev"
+}
