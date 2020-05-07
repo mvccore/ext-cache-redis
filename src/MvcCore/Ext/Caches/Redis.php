@@ -367,7 +367,7 @@ class Redis implements \MvcCore\Ext\ICache
 		if (!$this->enabled) return FALSE;
 		$deletedKeysCount = 0;
 		try {
-			$deletedKeysCount = $this->redis->delete($key);
+			$deletedKeysCount = $this->redis->del($key);
 		} catch (\Exception $e) {
 			$debugClass = $this->application->GetDebugClass();
 			$debugClass::Log($e);
@@ -387,7 +387,7 @@ class Redis implements \MvcCore\Ext\ICache
 		try {
 			if (count($keys) > 0) {
 				$deletedKeysCount = call_user_func_array(
-					[$this->redis, 'delete'],
+					[$this->redis, 'del'],
 					$keys
 				);
 			}
@@ -443,7 +443,7 @@ class Redis implements \MvcCore\Ext\ICache
 		if (count($keysToDelete) > 0) {
 			try {
 				$deletedKeysCount = call_user_func_array(
-					[$this->redis, 'delete'],
+					[$this->redis, 'del'],
 					$keysToDelete
 				);
 			} catch (\Exception $e) {
