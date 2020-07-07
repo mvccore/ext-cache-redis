@@ -197,8 +197,12 @@ class Redis implements \MvcCore\Ext\ICache
 				$multiRedis = $multiRedis->{$oppName}($args);
 			$result = $multiRedis->exec();
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $result;
 	}
@@ -226,8 +230,12 @@ class Redis implements \MvcCore\Ext\ICache
 					$this->redis->sAdd(self::TAG_PREFIX . $tag, $key);
 			$result = TRUE;
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $result;
 	}
@@ -263,8 +271,12 @@ class Redis implements \MvcCore\Ext\ICache
 			}
 			$result = TRUE;
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $result;
 	}
@@ -284,8 +296,12 @@ class Redis implements \MvcCore\Ext\ICache
 				try {
 					$result = call_user_func_array($notFoundCallback, [$this, $key]);
 				} catch (\Exception $e1) {
-					$debugClass::Log($e1);
-					$result = NULL;
+					if ($this->application->GetEnvironment()->IsDevelopment()) {
+						throw $e1;
+					} else {
+						$debugClass::Log($e1);
+						$result = NULL;
+					}
 				}
 			}
 			return $result;
@@ -298,8 +314,12 @@ class Redis implements \MvcCore\Ext\ICache
 				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 			}
 		} catch (\Exception $e2) {
-			$debugClass::Log($e2);
-			$result = NULL;
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e2;
+			} else {
+				$debugClass::Log($e2);
+				$result = NULL;
+			}
 		}
 		return $result;
 	}
@@ -329,8 +349,12 @@ class Redis implements \MvcCore\Ext\ICache
 							$notFoundCallback, [$this, $key]
 						);
 					} catch (\Exception $e1) {
-						$debugClass::Log($e1);
-						$results[$index] = NULL;
+						if ($this->application->GetEnvironment()->IsDevelopment()) {
+							throw $e1;
+						} else {
+							$debugClass::Log($e1);
+							$results[$index] = NULL;
+						}
 					}
 				}
 				return $results;
@@ -341,7 +365,11 @@ class Redis implements \MvcCore\Ext\ICache
 		try {
 			$rawContents = $this->redis->mGet($keysArr);
 		} catch (\Exception $e2) {
-			$debugClass::Log($e2);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e2;
+			} else {
+				$debugClass::Log($e2);
+			}
 		}
 		foreach ($rawContents as $index => $rawContent) {
 			try {
@@ -351,8 +379,12 @@ class Redis implements \MvcCore\Ext\ICache
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 				}
 			} catch (\Exception $e3) {
-				$debugClass::Log($e3);
-				$results[$index] = NULL;
+				if ($this->application->GetEnvironment()->IsDevelopment()) {
+					throw $e3;
+				} else {
+					$debugClass::Log($e3);
+					$results[$index] = NULL;
+				}
 			}
 		}
 		return $results;
@@ -369,8 +401,12 @@ class Redis implements \MvcCore\Ext\ICache
 		try {
 			$deletedKeysCount = $this->redis->del($key);
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $deletedKeysCount;
 	}
@@ -411,8 +447,12 @@ class Redis implements \MvcCore\Ext\ICache
 				}
 			}
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $deletedKeysCount;
 	}
@@ -447,8 +487,12 @@ class Redis implements \MvcCore\Ext\ICache
 					$keysToDelete
 				);
 			} catch (\Exception $e) {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
+				if ($this->application->GetEnvironment()->IsDevelopment()) {
+					throw $e;
+				} else {
+					$debugClass = $this->application->GetDebugClass();
+					$debugClass::Log($e);
+				}
 			}
 		}
 		return $deletedKeysCount;
@@ -465,8 +509,12 @@ class Redis implements \MvcCore\Ext\ICache
 		try {
 			$result = $this->redis->exists($key);
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $result;
 	}
@@ -493,8 +541,12 @@ class Redis implements \MvcCore\Ext\ICache
 				$keysArr
 			);
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $result;
 	}
@@ -509,8 +561,12 @@ class Redis implements \MvcCore\Ext\ICache
 		try {
 			$result = $this->redis->flushDb();
 		} catch (\Exception $e) {
-			$debugClass = $this->application->GetDebugClass();
-			$debugClass::Log($e);
+			if ($this->application->GetEnvironment()->IsDevelopment()) {
+				throw $e;
+			} else {
+				$debugClass = $this->application->GetDebugClass();
+				$debugClass::Log($e);
+			}
 		}
 		return $result;
 	}
