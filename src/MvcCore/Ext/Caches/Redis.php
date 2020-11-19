@@ -36,6 +36,9 @@ class Redis implements \MvcCore\Ext\ICache
 	/** @var bool */
 	protected $enabled = TRUE;
 
+	/** @var bool|NULL */
+	protected $connected = NULL;
+
 	/** @var \MvcCore\Application */
 	protected $application = TRUE;
 
@@ -119,6 +122,7 @@ class Redis implements \MvcCore\Ext\ICache
 
 		if (!class_exists('\Redis')) {
 			$this->enabled = FALSE;
+			$this->connected = FALSE;
 		} else {
 			try {
 				$this->redis = new \Redis();
@@ -130,11 +134,13 @@ class Redis implements \MvcCore\Ext\ICache
 						$connected = FALSE;
 					}
 				);
-				$this->enabled = $connected;
-				if ($connected)
+				$this->connected = !!$connected;
+				$this->enabled = $this->connected;
+				if ($this->enabled)
 					$this->redis->setOption(\Redis::OPT_PREFIX, $config[$dbKey].':');
 			} catch (\Exception $e) {
 				$debugClass::Log($e);
+				$this->connected = FALSE;
 				$this->enabled = FALSE;
 			}
 		}
@@ -172,6 +178,12 @@ class Redis implements \MvcCore\Ext\ICache
 	 * @return \MvcCore\Ext\Caches\Redis|\MvcCore\Ext\ICache
 	 */
 	public function SetEnabled ($enabled) {
+		if ($enabled) {
+			$enabled = (class_exists('\Redis') && (
+				$this->connected === NULL ||
+				$this->connected === TRUE
+			));
+		}
 		$this->enabled = $enabled;
 		return $this;
 	}
