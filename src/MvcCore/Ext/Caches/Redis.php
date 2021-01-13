@@ -34,7 +34,7 @@ class Redis implements \MvcCore\Ext\ICache
 	protected $redis = NULL;
 
 	/** @var bool */
-	protected $enabled = TRUE;
+	protected $enabled = FALSE;
 
 	/** @var bool|NULL */
 	protected $connected = NULL;
@@ -43,6 +43,7 @@ class Redis implements \MvcCore\Ext\ICache
 	protected $application = TRUE;
 
 	/**
+	 * @inheritDocs
 	 * @param string|array|NULL $connectionArguments...
 	 * If string, it's used as connection name.
 	 * If array, it's used as connection config array with keys:
@@ -53,11 +54,11 @@ class Redis implements \MvcCore\Ext\ICache
 	 *  - `timeout`		default: NULL
 	 *  If NULL, there is returned `default` connection
 	 *  name with default initial configuration values.
-	 * @return \MvcCore\Ext\Caches\Redis|\MvcCore\Ext\ICache
+	 * @return \MvcCore\Ext\Caches\Redis
 	 */
 	public static function GetInstance (/*...$connectionNameOrArguments = NULL*/) {
 		$args = func_get_args();
-		$nameKey = \MvcCore\Ext\ICache::CONNECTION_NAME;
+		$nameKey = self::CONNECTION_NAME;
 		$config = static::$defaults;
 		$connectionName = $config[$nameKey];
 		if (isset($args[0])) {
@@ -82,6 +83,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
+	 * @inheritDocs
 	 * @param array $config Connection config array with keys:
 	 *  - `name`		default: 'default'
 	 *  - `host`		default: '127.0.0.1'
@@ -90,43 +92,52 @@ class Redis implements \MvcCore\Ext\ICache
 	 *  - `timeout`		default: NULL
 	 */
 	protected function __construct (array $config = []) {
-		$hostKey	= \MvcCore\Ext\ICache::CONNECTION_HOST;
-		$portKey	= \MvcCore\Ext\ICache::CONNECTION_PORT;
-		$timeoutKey	= \MvcCore\Ext\ICache::CONNECTION_TIMEOUT;
-		$dbKey		= \MvcCore\Ext\ICache::CONNECTION_DATABASE;
-
-		$connectionArguments = [];
+		$hostKey	= self::CONNECTION_HOST;
+		$portKey	= self::CONNECTION_PORT;
+		$timeoutKey	= self::CONNECTION_TIMEOUT;
+		$dbKey		= self::CONNECTION_DATABASE;
 
 		if (!isset($config[$hostKey]))
 			$config[$hostKey] = static::$defaults[$hostKey];
-		$connectionArguments[] = $config[$hostKey];
-
 		if (!isset($config[$portKey]))
 			$config[$portKey] = static::$defaults[$portKey];
-		$connectionArguments[] = $config[$portKey];
-
-		if (isset($config[$timeoutKey])) {
-			$connectionArguments[] = $config[$timeoutKey];
-		} else if (static::$defaults[$timeoutKey] !== NULL) {
+		if (
+			!isset($config[$timeoutKey]) && 
+			static::$defaults[$timeoutKey] !== NULL
+		) 
 			$config[$timeoutKey] = static::$defaults[$timeoutKey];
-			$connectionArguments[] = $config[$timeoutKey];
-		}
-
 		if (!isset($config[$dbKey]))
 			$config[$dbKey]	= static::$defaults[$dbKey];
 
 		$this->config = (object) $config;
 		$this->application = \MvcCore\Application::GetInstance();
-		$toolClass = $this->application->GetToolClass();
-		$debugClass = $this->application->GetDebugClass();
+	}
 
+	/**
+	 * @inheritDocs
+	 * @return bool
+	 */
+	public function Connect () {
 		if (!class_exists('\Redis')) {
 			$this->enabled = FALSE;
 			$this->connected = FALSE;
 		} else {
+			$toolClass = $this->application->GetToolClass();
+			$debugClass = $this->application->GetDebugClass();
+			$timeoutKey = self::CONNECTION_TIMEOUT;
+
+			$connectionArguments = [
+				$this->config->{self::CONNECTION_HOST},
+				$this->config->{self::CONNECTION_PORT}
+			];
+			if (isset($this->config->{$timeoutKey})) {
+				$connectionArguments[] = $this->config->{$timeoutKey};
+			} else if (static::$defaults[$timeoutKey] !== NULL) {
+				$connectionArguments[] = static::$defaults[$timeoutKey];
+			}
+
 			try {
 				$this->redis = new \Redis();
-
 				$connected = $toolClass::Invoke(
 					[$this->redis, 'connect'],
 					$connectionArguments,
@@ -137,17 +148,22 @@ class Redis implements \MvcCore\Ext\ICache
 				$this->connected = !!$connected;
 				$this->enabled = $this->connected;
 				if ($this->enabled)
-					$this->redis->setOption(\Redis::OPT_PREFIX, $config[$dbKey].':');
-			} catch (\Exception $e) {
+					$this->redis->setOption(
+						\Redis::OPT_PREFIX, 
+						$this->config->{self::CONNECTION_DATABASE}.':'
+					);
+
+			} catch (\Throwable $e) {
 				$debugClass::Log($e);
 				$this->connected = FALSE;
 				$this->enabled = FALSE;
 			}
 		}
+		return $this->connected;
 	}
 
 	/**
-	 * Get resource instance.
+	 * @inheritDocs
 	 * @return \Redis|NULL
 	 */
 	public function GetResource () {
@@ -155,9 +171,9 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Set resource instance.
+	 * @inheritDocs
 	 * @param \Redis $resource
-	 * @return \MvcCore\Ext\Caches\Redis|\MvcCore\Ext\ICache
+	 * @return \MvcCore\Ext\Caches\Redis
 	 */
 	public function SetResource ($resource) {
 		$this->redis = $resource;
@@ -165,7 +181,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Return initial configuration data.
+	 * @inheritDocs
 	 * @return \stdClass
 	 */
 	public function GetConfig () {
@@ -175,7 +191,7 @@ class Redis implements \MvcCore\Ext\ICache
 	/**
 	 * Enable/disable cache component.
 	 * @param bool $enable
-	 * @return \MvcCore\Ext\Caches\Redis|\MvcCore\Ext\ICache
+	 * @return \MvcCore\Ext\Caches\Redis
 	 */
 	public function SetEnabled ($enabled) {
 		if ($enabled) {
@@ -189,7 +205,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Get if cache component is enabled/disabled.
+	 * @inheritDocs
 	 * @return bool
 	 */
 	public function GetEnabled () {
@@ -197,7 +213,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Process given operations in transaction mode.
+	 * @inheritDocs
 	 * @param array $ops Keys are redis functions names, values are functions arguments.
 	 * @return array
 	 */
@@ -208,7 +224,7 @@ class Redis implements \MvcCore\Ext\ICache
 			foreach ($ops as $oppName => $args)
 				$multiRedis = $multiRedis->{$oppName}($args);
 			$result = $multiRedis->exec();
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -220,7 +236,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Set content under key with seconds expiration and tag(s).
+	 * @inheritDocs
 	 * @param string $key
 	 * @param mixed  $content
 	 * @param int    $expirationSeconds
@@ -241,7 +257,7 @@ class Redis implements \MvcCore\Ext\ICache
 				foreach ($cacheTags as $tag)
 					$this->redis->sAdd(self::TAG_PREFIX . $tag, $key);
 			$result = TRUE;
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -253,7 +269,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Set multiple contents under keys with seconds expirations and tags.
+	 * @inheritDocs
 	 * @param array $keysAndContents
 	 * @param int   $expirationSeconds
 	 * @param array $cacheTags
@@ -282,7 +298,7 @@ class Redis implements \MvcCore\Ext\ICache
 				}
 			}
 			$result = TRUE;
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -294,8 +310,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Return mixed content from cache by key or return `NULL` if content doens't
-	 * exist in cache for given key.
+	 * @inheritDocs
 	 * @param string        $key
 	 * @param callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
 	 * @return mixed|NULL
@@ -307,7 +322,7 @@ class Redis implements \MvcCore\Ext\ICache
 			if ($notFoundCallback !== NULL) {
 				try {
 					$result = call_user_func_array($notFoundCallback, [$this, $key]);
-				} catch (\Exception $e1) {
+				} catch (\Throwable $e1) {
 					if ($this->application->GetEnvironment()->IsDevelopment()) {
 						throw $e1;
 					} else {
@@ -325,7 +340,7 @@ class Redis implements \MvcCore\Ext\ICache
 			} else if ($notFoundCallback !== NULL) {
 				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 			}
-		} catch (\Exception $e2) {
+		} catch (\Throwable $e2) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e2;
 			} else {
@@ -337,7 +352,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Get content by key.
+	 * @inheritDocs
 	 * @param \string[]     $keys
 	 * @param callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
 	 * @return mixed|NULL
@@ -360,7 +375,7 @@ class Redis implements \MvcCore\Ext\ICache
 						$results[$index] = call_user_func_array(
 							$notFoundCallback, [$this, $key]
 						);
-					} catch (\Exception $e1) {
+					} catch (\Throwable $e1) {
 						if ($this->application->GetEnvironment()->IsDevelopment()) {
 							throw $e1;
 						} else {
@@ -376,7 +391,7 @@ class Redis implements \MvcCore\Ext\ICache
 		}
 		try {
 			$rawContents = $this->redis->mGet($keysArr);
-		} catch (\Exception $e2) {
+		} catch (\Throwable $e2) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e2;
 			} else {
@@ -390,7 +405,7 @@ class Redis implements \MvcCore\Ext\ICache
 				} else if ($notFoundCallback !== NULL) {
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 				}
-			} catch (\Exception $e3) {
+			} catch (\Throwable $e3) {
 				if ($this->application->GetEnvironment()->IsDevelopment()) {
 					throw $e3;
 				} else {
@@ -403,7 +418,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Delete cache record by key.
+	 * @inheritDocs
 	 * @param string $key
 	 * @return bool
 	 */
@@ -412,7 +427,7 @@ class Redis implements \MvcCore\Ext\ICache
 		$deletedKeysCount = 0;
 		try {
 			$deletedKeysCount = $this->redis->del($key);
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -424,7 +439,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Delete cache record by key.
+	 * @inheritDocs
 	 * @param \string[] $keys
 	 * @param array $keysTags
 	 * @return int
@@ -458,7 +473,7 @@ class Redis implements \MvcCore\Ext\ICache
 					);
 				}
 			}
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -470,7 +485,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Delete cache record by key.
+	 * @inheritDocs
 	 * @param string|array $tags
 	 * @return int
 	 */
@@ -498,7 +513,7 @@ class Redis implements \MvcCore\Ext\ICache
 					[$this->redis, 'del'],
 					$keysToDelete
 				);
-			} catch (\Exception $e) {
+			} catch (\Throwable $e) {
 				if ($this->application->GetEnvironment()->IsDevelopment()) {
 					throw $e;
 				} else {
@@ -511,7 +526,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Return `1` if cache has any record under given key, `0` if not.
+	 * @inheritDocs
 	 * @param string $key
 	 * @return int
 	 */
@@ -520,7 +535,7 @@ class Redis implements \MvcCore\Ext\ICache
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->redis->exists($key);
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -532,7 +547,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Return number of records existing in cache under given keys, `0` if nothing.
+	 * @inheritDocs
 	 * @param \string[] $key
 	 * @return int
 	 */
@@ -552,7 +567,7 @@ class Redis implements \MvcCore\Ext\ICache
 				[$this->redis, 'exists'],
 				$keysArr
 			);
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
@@ -564,7 +579,7 @@ class Redis implements \MvcCore\Ext\ICache
 	}
 
 	/**
-	 * Remove everything from used cache database.
+	 * @inheritDocs
 	 * @return bool
 	 */
 	public function Clear () {
@@ -572,7 +587,7 @@ class Redis implements \MvcCore\Ext\ICache
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->redis->flushDb();
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
 			} else {
