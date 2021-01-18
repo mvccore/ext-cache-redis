@@ -1,7 +1,7 @@
 {
 	"name": "mvccore/ext-cache-redis",
 	"type": "library",
-	"description": "MvcCore - Extension - Cache - Redis - Redis cache implementation extension.",
+	"description": "MvcCore - Extension - Cache - Redis - cache implementation extension for Redis.",
 	"keywords": [
 		"mvc",
 		"mvccore",
