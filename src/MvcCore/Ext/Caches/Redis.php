@@ -160,10 +160,6 @@ class Redis implements \MvcCore\Ext\ICache {
 						$this->config->{self::CONNECTION_DATABASE}.':'
 					);
 
-			} catch (\Exception $e) { // backward compatibility
-				$debugClass::Log($e);
-				$this->connected = FALSE;
-				$this->enabled = FALSE;
 			} catch (\Throwable $e) {
 				$debugClass::Log($e);
 				$this->connected = FALSE;
@@ -235,13 +231,6 @@ class Redis implements \MvcCore\Ext\ICache {
 			foreach ($ops as $oppName => $args)
 				$multiRedis = $multiRedis->{$oppName}($args);
 			$result = $multiRedis->exec();
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -275,13 +264,6 @@ class Redis implements \MvcCore\Ext\ICache {
 				foreach ($cacheTags as $tag)
 					$this->redis->sAdd(self::TAG_PREFIX . $tag, $key);
 			$result = TRUE;
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -323,13 +305,6 @@ class Redis implements \MvcCore\Ext\ICache {
 				}
 			}
 			$result = TRUE;
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -493,13 +468,6 @@ class Redis implements \MvcCore\Ext\ICache {
 		$deletedKeysCount = 0;
 		try {
 			$deletedKeysCount = $this->redis->del($key);
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -546,13 +514,6 @@ class Redis implements \MvcCore\Ext\ICache {
 					);
 				}
 			}
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -593,13 +554,6 @@ class Redis implements \MvcCore\Ext\ICache {
 					[$this->redis, 'del'],
 					$keysToDelete
 				);
-			} catch (\Exception $e) { // backward compatibility
-				if ($this->application->GetEnvironment()->IsDevelopment()) {
-					throw $e;
-				} else {
-					$debugClass = $this->application->GetDebugClass();
-					$debugClass::Log($e);
-				}
 			} catch (\Throwable $e) {
 				if ($this->application->GetEnvironment()->IsDevelopment()) {
 					throw $e;
@@ -622,13 +576,6 @@ class Redis implements \MvcCore\Ext\ICache {
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->redis->exists($key);
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -661,13 +608,6 @@ class Redis implements \MvcCore\Ext\ICache {
 				[$this->redis, 'exists'],
 				$keysArr
 			);
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
@@ -688,13 +628,6 @@ class Redis implements \MvcCore\Ext\ICache {
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->redis->flushDb();
-		} catch (\Exception $e) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
 		} catch (\Throwable $e) {
 			if ($this->application->GetEnvironment()->IsDevelopment()) {
 				throw $e;
