@@ -179,7 +179,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param \Redis $resource
+	 * @param  \Redis $resource
 	 * @return \MvcCore\Ext\Caches\Redis
 	 */
 	public function SetResource ($resource) {
