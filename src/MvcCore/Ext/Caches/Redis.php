@@ -197,7 +197,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * Enable/disable cache component.
-	 * @param bool $enable
+	 * @param  bool $enable
 	 * @return \MvcCore\Ext\Caches\Redis
 	 */
 	public function SetEnabled ($enabled) {
@@ -221,7 +221,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param array $ops Keys are redis functions names, values are functions arguments.
+	 * @param  array $ops Keys are redis functions names, values are functions arguments.
 	 * @return array
 	 */
 	public function ProcessTransaction (array $ops = []) {
@@ -244,10 +244,10 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param string $key
-	 * @param mixed  $content
-	 * @param int    $expirationSeconds
-	 * @param array  $cacheTags
+	 * @param  string   $key
+	 * @param  mixed    $content
+	 * @param  int|NULL $expirationSeconds
+	 * @param  array    $cacheTags
 	 * @return bool
 	 */
 	public function Save ($key, $content, $expirationSeconds = NULL, $cacheTags = []) {
@@ -277,9 +277,9 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param array $keysAndContents
-	 * @param int   $expirationSeconds
-	 * @param array $cacheTags
+	 * @param  array    $keysAndContents
+	 * @param  int|NULL $expirationSeconds
+	 * @param  array    $cacheTags
 	 * @return bool
 	 */
 	public function SaveMultiple ($keysAndContents, $expirationSeconds = NULL, $cacheTags = []) {
@@ -318,8 +318,8 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param string        $key
-	 * @param callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
+	 * @param  string        $key
+	 * @param  callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
 	 * @return mixed|NULL
 	 */
 	public function Load ($key, callable $notFoundCallback = NULL) {
@@ -374,8 +374,8 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param \string[]     $keys
-	 * @param callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
+	 * @param  \string[]     $keys
+	 * @param  callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
 	 * @return mixed|NULL
 	 */
 	public function LoadMultiple (array $keys, callable $notFoundCallback = NULL) {
@@ -460,7 +460,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param string $key
+	 * @param  string $key
 	 * @return bool
 	 */
 	public function Delete ($key) {
@@ -481,8 +481,8 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param \string[] $keys
-	 * @param array $keysTags
+	 * @param  \string[] $keys
+	 * @param  array     $keysTags
 	 * @return int
 	 */
 	public function DeleteMultiple (array $keys, array $keysTags = []) {
@@ -527,7 +527,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param string|array $tags
+	 * @param  string|array $tags
 	 * @return int
 	 */
 	public function DeleteByTags ($tags) {
@@ -568,7 +568,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param string $key
+	 * @param  string $key
 	 * @return int
 	 */
 	public function Has ($key) {
@@ -589,7 +589,7 @@ class Redis implements \MvcCore\Ext\ICache {
 
 	/**
 	 * @inheritDocs
-	 * @param \string[] $key
+	 * @param  \string[] $key
 	 * @return int
 	 */
 	public function HasMultiple ($keys) {
