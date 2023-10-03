@@ -13,155 +13,94 @@
 
 namespace MvcCore\Ext\Caches;
 
-class Redis implements \MvcCore\Ext\ICache {
+/**
+ * @method static \MvcCore\Ext\Caches\Redis GetInstance(string|array|NULL $connectionArguments,...) 
+ * Create or get cached cache wrapper instance.
+ * If first argument is string, it's used as connection name.
+ * If first argument is array, it's used as connection config array with keys:
+ *  - `name`     default: `default`,
+ *  - `host`     default: `127.0.0.1`,
+ *  - `port`     default: `6379`,
+ *  - `database` default: `$_SERVER['SERVER_NAME']`,
+ *  - `timeout`  default: `0.5` seconds,
+ *  - `provider` default: `[...]`, provider specific configuration.
+ *  If no argument provided, there is returned `default` 
+ *  connection name with default initial configuration values.
+ * @method \Redis|NULL GetProvider() Get `\Redis` provider instance.
+ * @method \MvcCore\Ext\Caches\Redis SetProvider(\Redis|NULL $provider) Set `\Redis` provider instance.
+ * @property \Redis|NULL $provider
+ */
+class		Redis
+extends		\MvcCore\Ext\Caches\Base
+implements	\MvcCore\Ext\ICache {
 	
 	/**
 	 * MvcCore Extension - Cache - Redis - version:
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.0.1';
+	const VERSION = '5.2.0';
 
 	/** @var array */
-	protected static $instances = [];
-
-	/** @var array */
-	protected static $defaults = [
-		\MvcCore\Ext\ICache::CONNECTION_NAME		=> 'default',
+	protected static $defaults	= [
+		\MvcCore\Ext\ICache::CONNECTION_PERSISTENCE	=> 'default',
+		\MvcCore\Ext\ICache::CONNECTION_NAME		=> NULL,
 		\MvcCore\Ext\ICache::CONNECTION_HOST		=> '127.0.0.1',
 		\MvcCore\Ext\ICache::CONNECTION_PORT		=> 6379,
-		\MvcCore\Ext\ICache::CONNECTION_DATABASE	=> NULL,
-		\MvcCore\Ext\ICache::CONNECTION_TIMEOUT		=> NULL,
+		\MvcCore\Ext\ICache::CONNECTION_TIMEOUT		=> 0.5, // in seconds
+		\MvcCore\Ext\ICache::PROVIDER_CONFIG		=> [
+			'\Redis::OPT_SERIALIZER'				=> '\Redis::SERIALIZER_IGBINARY', // PHP serializer used if not available
+			'\Redis::OPT_READ_TIMEOUT'				=> 0.01,  // in seconds
+			'\Redis::OPT_MAX_RETRIES'				=> 5,
+		]
 	];
 
-	/** @var \stdClass|NULL */
-	protected $config = NULL;
-
-	/** @var \Redis|NULL */
-	protected $redis = NULL;
-
-	/** @var bool */
-	protected $enabled = FALSE;
-
-	/** @var bool|NULL */
-	protected $connected = NULL;
-
-	/** @var \MvcCore\Application */
-	protected $application = TRUE;
-
 	/**
-	 * @inheritDocs
-	 * @param string|array|NULL $connectionArguments...
-	 * If string, it's used as connection name.
-	 * If array, it's used as connection config array with keys:
-	 *  - `name`		default: 'default'
-	 *  - `host`		default: '127.0.0.1'
-	 *  - `port`		default: 6379
-	 *  - `database`	default: $_SERVER['SERVER_NAME']
-	 *  - `timeout`		default: NULL
-	 *  If NULL, there is returned `default` connection
-	 *  name with default initial configuration values.
-	 * @return \MvcCore\Ext\Caches\Redis
-	 */
-	public static function GetInstance (/*...$connectionNameOrArguments = NULL*/) {
-		$args = func_get_args();
-		$nameKey = self::CONNECTION_NAME;
-		$config = static::$defaults;
-		$connectionName = $config[$nameKey];
-		if (isset($args[0])) {
-			$arg = & $args[0];
-			if (is_string($arg)) {
-				$connectionName = $arg;
-			} else if (is_array($arg)) {
-				$connectionName = isset($arg[$nameKey])
-					? $arg[$nameKey]
-					: static::$defaults[$nameKey];
-				$config = $arg;
-			} else if ($arg !== NULL) {
-				throw new \InvalidArgumentException(
-					"[".get_class()."] Cache instance getter argument could be ".
-					"only a string connection name or connection config array."
-				);
-			}
-		}
-		if (!isset(self::$instances[$connectionName]))
-			self::$instances[$connectionName] = new static($config);
-		return self::$instances[$connectionName];
-	}
-
-	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param array $config Connection config array with keys:
-	 *  - `name`		default: 'default'
-	 *  - `host`		default: '127.0.0.1'
-	 *  - `port`		default: 6379
-	 *  - `database`	default: $_SERVER['SERVER_NAME']
-	 *  - `timeout`		default: NULL
+	 *  - `name`     default: `default`,
+	 *  - `host`     default: `127.0.0.1`,
+	 *  - `port`     default: `6379`,
+	 *  - `database` default: `$_SERVER['SERVER_NAME']`,
+	 *  - `timeout`  default: `0.5` seconds,
+	 *  - `provider` default: `[...]`, provider specific configuration.
 	 */
 	protected function __construct (array $config = []) {
-		$hostKey	= self::CONNECTION_HOST;
-		$portKey	= self::CONNECTION_PORT;
-		$timeoutKey	= self::CONNECTION_TIMEOUT;
-		$dbKey		= self::CONNECTION_DATABASE;
-
-		if (!isset($config[$hostKey]))
-			$config[$hostKey] = static::$defaults[$hostKey];
-		if (!isset($config[$portKey]))
-			$config[$portKey] = static::$defaults[$portKey];
-		if (
-			!isset($config[$timeoutKey]) && 
-			static::$defaults[$timeoutKey] !== NULL
-		) 
-			$config[$timeoutKey] = static::$defaults[$timeoutKey];
-		if (!isset($config[$dbKey]))
-			$config[$dbKey]	= static::$defaults[$dbKey];
-
-		$this->config = (object) $config;
-		$this->application = \MvcCore\Application::GetInstance();
+		parent::__construct($config);
+		$this->installed = class_exists('\Redis');
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @return bool
 	 */
 	public function Connect () {
-		if (!class_exists('\Redis')) {
+		if ($this->connected) {
+			return TRUE;
+		} else if (!$this->installed) {
 			$this->enabled = FALSE;
 			$this->connected = FALSE;
 		} else {
-			$toolClass = $this->application->GetToolClass();
-			$debugClass = $this->application->GetDebugClass();
-			$timeoutKey = self::CONNECTION_TIMEOUT;
-
-			$connectionArguments = [
-				$this->config->{self::CONNECTION_HOST},
-				$this->config->{self::CONNECTION_PORT}
-			];
-			if (isset($this->config->{$timeoutKey})) {
-				$connectionArguments[] = $this->config->{$timeoutKey};
-			} else if (static::$defaults[$timeoutKey] !== NULL) {
-				$connectionArguments[] = static::$defaults[$timeoutKey];
-			}
-
 			try {
-				$this->redis = new \Redis();
-				$connected = $toolClass::Invoke(
-					[$this->redis, 'connect'],
-					$connectionArguments,
-					function ($errMsg, $errLevel, $errLine, $errContext) use (& $connected) {
-						$connected = FALSE;
-					}
-				);
-				$this->connected = !!$connected;
+				$this->provider = new \Redis();
+				if ($this->provider->isConnected()) {
+					$this->connected = TRUE;
+				} else {
+					$this->connected = $this->connectExecute();
+					$this->connectConfigure();
+				}
 				$this->enabled = $this->connected;
-				if ($this->enabled)
-					$this->redis->setOption(
+				if ($this->enabled) 
+					$this->provider->setOption(
 						\Redis::OPT_PREFIX, 
 						$this->config->{self::CONNECTION_DATABASE}.':'
 					);
-
-			} catch (\Throwable $e) {
-				$debugClass::Log($e);
+			} catch (\Exception $e1) { // backward compatibility
+				$this->exceptionHandler($e1);
+				$this->connected = FALSE;
+				$this->enabled = FALSE;
+			} catch (\Throwable $e2) {
+				$this->exceptionHandler($e2);
 				$this->connected = FALSE;
 				$this->enabled = FALSE;
 			}
@@ -170,80 +109,87 @@ class Redis implements \MvcCore\Ext\ICache {
 	}
 
 	/**
-	 * @inheritDocs
-	 * @return \Redis|NULL
-	 */
-	public function GetResource () {
-		return $this->redis;
-	}
-
-	/**
-	 * @inheritDocs
-	 * @param  \Redis $resource
-	 * @return \MvcCore\Ext\Caches\Redis
-	 */
-	public function SetResource ($resource) {
-		$this->redis = $resource;
-		return $this;
-	}
-
-	/**
-	 * @inheritDocs
-	 * @return \stdClass
-	 */
-	public function GetConfig () {
-		return $this->config;
-	}
-
-	/**
-	 * Enable/disable cache component.
-	 * @param  bool $enable
-	 * @return \MvcCore\Ext\Caches\Redis
-	 */
-	public function SetEnabled ($enabled) {
-		if ($enabled) {
-			$enabled = (class_exists('\Redis') && (
-				$this->connected === NULL ||
-				$this->connected === TRUE
-			));
-		}
-		$this->enabled = $enabled;
-		return $this;
-	}
-
-	/**
-	 * @inheritDocs
+	 * Process every request connection or first persistent connection.
 	 * @return bool
 	 */
-	public function GetEnabled () {
-		return $this->enabled;
+	protected function connectExecute () {
+		$toolClass	= $this->application->GetToolClass();
+		$persKey	= self::CONNECTION_PERSISTENCE;
+		$timeoutKey = self::CONNECTION_TIMEOUT;
+		$connMethodName = 'connect';
+		$connectionArguments = [
+			$this->config->{self::CONNECTION_HOST},
+			$this->config->{self::CONNECTION_PORT},
+			isset($this->config->{$timeoutKey})
+				? $this->config->{$timeoutKey}
+				: static::$defaults[$timeoutKey]
+		];
+		if (isset($this->config->{$persKey})) {
+			$connectionArguments[] = $this->config->{$persKey};
+			$connMethodName = 'pconnect';
+		}
+		$connected = $toolClass::Invoke(
+			[$this->provider, $connMethodName],
+			$connectionArguments,
+			function ($errMsg, $errLevel, $errLine, $errContext) use (& $connected) {
+				$connected = FALSE;
+			}
+		);
+		return !!$connected;
 	}
-
+	
 	/**
-	 * @inheritDocs
-	 * @param  array $ops Keys are redis functions names, values are functions arguments.
+	 * Configure connection provider after connection is established.
+	 * @return void
+	 */
+	protected function connectConfigure () {
+		$provKey = self::PROVIDER_CONFIG;
+		$provConfig = isset($this->config->{$provKey})
+			? $this->config->{$provKey}
+			: [];
+		$provConfigDefault = static::$defaults[$provKey];
+		$redisConstBegin = '\Redis::';
+		foreach ($provConfigDefault as $constStr => $rawValue) {
+			$const = constant($constStr);
+			if (!isset($provConfig[$const])) {
+				if (is_string($rawValue) && strpos($rawValue, $redisConstBegin) === 0) {
+					if (!defined($rawValue))
+						continue;
+					$value = constant($rawValue);
+				} else {
+					$value = $rawValue;
+				}
+				$provConfig[$const] = $value;
+			}
+		}
+		if (!isset($provConfig[\Redis::OPT_SERIALIZER]))
+			$provConfig[\Redis::OPT_SERIALIZER] = \Redis::SERIALIZER_PHP;
+		foreach ($provConfig as $provOptKey => $provOptVal)
+			$this->provider->setOption($provOptKey, $provOptVal);
+	}
+	
+	/**
+	 * Process given operations in transaction mode.
+	 * @param  array $ops Keys are client functions names, values are functions arguments.
 	 * @return array
 	 */
 	public function ProcessTransaction (array $ops = []) {
 		$result = [];
 		try {
-			$multiRedis = $this->redis->multi();
+			$multiRedis = $this->provider->multi();
 			foreach ($ops as $oppName => $args)
 				$multiRedis = $multiRedis->{$oppName}($args);
 			$result = $multiRedis->exec();
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  string   $key
 	 * @param  mixed    $content
 	 * @param  int|NULL $expirationSeconds
@@ -256,27 +202,24 @@ class Redis implements \MvcCore\Ext\ICache {
 			return $result;
 		try {
 			if ($expirationSeconds === NULL) {
-				$this->redis->set($key, serialize($content));
+				$this->provider->set($key, [$content]);
 			} else {
-				$this->redis->setEx($key, $expirationSeconds, serialize($content));
+				$this->provider->setEx($key, $expirationSeconds, [$content]);
 			}
 			if ($cacheTags)
 				foreach ($cacheTags as $tag)
-					$this->redis->sAdd(self::TAG_PREFIX . $tag, $key);
+					$this->provider->sAdd(self::TAG_PREFIX . $tag, $key);
 			$result = TRUE;
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  array    $keysAndContents
 	 * @param  int|NULL $expirationSeconds
 	 * @param  array    $cacheTags
@@ -287,129 +230,90 @@ class Redis implements \MvcCore\Ext\ICache {
 		if (!$this->enabled || $keysAndContents === NULL)
 			return $result;
 		try {
-			$keysAndContents = array_map('serialize', $keysAndContents);
+			$keysAndContents = array_map(function ($item) {
+				return [$item];
+			}, $keysAndContents);
 			if ($expirationSeconds === NULL) {
-				$this->redis->mSet($keysAndContents);
+				$this->provider->mSet($keysAndContents);
 			} else {
-				foreach ($keysAndContents as $key => $serializedContent)
-					$this->redis->setEx($key, $expirationSeconds, $serializedContent);
+				foreach ($keysAndContents as $key => $content)
+					$this->provider->setEx($key, $expirationSeconds, $content);
 			}
-			if ($cacheTags) {
+			if (count($cacheTags) > 0) {
 				$args = array_keys($keysAndContents);
-				if ($args !== NULL) {
-					array_unshift($args, '');
-					foreach ($cacheTags as $tag) {
-						$args[0] = self::TAG_PREFIX . $tag;
-						call_user_func_array([$this->redis, 'sAdd'], $args);
-					}
+				array_unshift($args, ''); // will be replaced with tag set key
+				foreach ($cacheTags as $tag) {
+					$args[0] = self::TAG_PREFIX . $tag;
+					call_user_func_array([$this->memcached, 'sAdd'], $args);
 				}
 			}
 			$result = TRUE;
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  string        $key
 	 * @param  callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
 	 * @return mixed|NULL
 	 */
 	public function Load ($key, callable $notFoundCallback = NULL) {
 		$result = NULL;
-		$debugClass = $this->application->GetDebugClass();
 		if (!$this->enabled) {
 			if ($notFoundCallback !== NULL) {
 				try {
 					$result = call_user_func_array($notFoundCallback, [$this, $key]);
 				} catch (\Exception $e1) { // backward compatibility
-					if ($this->application->GetEnvironment()->IsDevelopment()) {
-						throw $e1;
-					} else {
-						$debugClass::Log($e1);
-						$result = NULL;
-					}
-				} catch (\Throwable $e1) {
-					if ($this->application->GetEnvironment()->IsDevelopment()) {
-						throw $e1;
-					} else {
-						$debugClass::Log($e1);
-						$result = NULL;
-					}
+					$result = NULL;
+					$this->exceptionHandler($e1);
+				} catch (\Throwable $e2) {
+					$result = NULL;
+					$this->exceptionHandler($e2);
 				}
 			}
 			return $result;
 		}
 		try {
-			$rawContent = $this->redis->get($key);
-			if ($rawContent !== FALSE) {
-				$result = unserialize($rawContent);
+			$rawArray = $this->provider->get($key);
+			if ($rawArray !== FALSE) {
+				$result = $rawArray[0];
 			} else if ($notFoundCallback !== NULL) {
 				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 			}
-		} catch (\Exception $e2) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e2;
-			} else {
-				$debugClass::Log($e2);
-				$result = NULL;
-			}
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e2;
-			} else {
-				$debugClass::Log($e2);
-				$result = NULL;
-			}
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  \string[]     $keys
 	 * @param  callable|NULL $notFoundCallback function ($cache, $cacheKey) { ... $cache->Save($cacheKey, $data); return $data; }
-	 * @return mixed|NULL
+	 * @return array|NULL
 	 */
 	public function LoadMultiple (array $keys, callable $notFoundCallback = NULL) {
 		$results = [];
-		$keysArr = func_get_args();
-		if (count($keysArr) === 1) {
-			if (is_array($keys)) {
-				$keysArr = $keys;
-			} else if (is_string($keys)) {
-				$keysArr = [$keys];
-			}
-		}
-		$debugClass = $this->application->GetDebugClass();
 		if (!$this->enabled) {
 			if ($notFoundCallback !== NULL) {
-				foreach ($keysArr as $index => $key) {
+				foreach ($keys as $index => $key) {
 					try {
 						$results[$index] = call_user_func_array(
 							$notFoundCallback, [$this, $key]
 						);
 					} catch (\Exception $e1) { // backward compatibility
-						if ($this->application->GetEnvironment()->IsDevelopment()) {
-							throw $e1;
-						} else {
-							$debugClass::Log($e1);
-							$results[$index] = NULL;
-						}
-					} catch (\Throwable $e1) {
-						if ($this->application->GetEnvironment()->IsDevelopment()) {
-							throw $e1;
-						} else {
-							$debugClass::Log($e1);
-							$results[$index] = NULL;
-						}
+						$results[$index] = NULL;
+						$this->exceptionHandler($e1);
+					} catch (\Throwable $e2) {
+						$results[$index] = NULL;
+						$this->exceptionHandler($e2);
 					}
 				}
 				return $results;
@@ -418,48 +322,32 @@ class Redis implements \MvcCore\Ext\ICache {
 			}
 		}
 		try {
-			$rawContents = $this->redis->mGet($keysArr);
-		} catch (\Exception $e2) { // backward compatibility
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e2;
-			} else {
-				$debugClass::Log($e2);
-			}
+			$rawContents = $this->provider->mGet($keys);
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e2;
-			} else {
-				$debugClass::Log($e2);
-			}
+			$this->exceptionHandler($e2);
 		}
-		foreach ($rawContents as $index => $rawContent) {
+		foreach ($rawContents as $index => $rawArray) {
 			try {
-				if ($rawContent !== FALSE) {
-					$results[$index] = unserialize($rawContent);
+				if ($rawArray !== FALSE) {
+					$results[$index] = $rawArray[0];
 				} else if ($notFoundCallback !== NULL) {
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 				}
-			} catch (\Exception $e2) { // backward compatibility
-				if ($this->application->GetEnvironment()->IsDevelopment()) {
-					throw $e3;
-				} else {
-					$debugClass::Log($e3);
-					$results[$index] = NULL;
-				}
-			} catch (\Throwable $e3) {
-				if ($this->application->GetEnvironment()->IsDevelopment()) {
-					throw $e3;
-				} else {
-					$debugClass::Log($e3);
-					$results[$index] = NULL;
-				}
+			} catch (\Exception $e1) { // backward compatibility
+				$results[$index] = NULL;
+				$this->exceptionHandler($e1);
+			} catch (\Throwable $e2) {
+				$results[$index] = NULL;
+				$this->exceptionHandler($e2);
 			}
 		}
 		return $results;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  string $key
 	 * @return bool
 	 */
@@ -467,20 +355,17 @@ class Redis implements \MvcCore\Ext\ICache {
 		if (!$this->enabled) return FALSE;
 		$deletedKeysCount = 0;
 		try {
-			$deletedKeysCount = $this->redis->del($key);
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+			$deletedKeysCount = $this->provider->del($key);
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
-		return $deletedKeysCount;
+		return $deletedKeysCount === 1;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  \string[] $keys
 	 * @param  array     $keysTags
 	 * @return int
@@ -491,7 +376,7 @@ class Redis implements \MvcCore\Ext\ICache {
 		try {
 			if (count($keys) > 0) {
 				$deletedKeysCount = call_user_func_array(
-					[$this->redis, 'del'],
+					[$this->provider, 'del'],
 					$keys
 				);
 			}
@@ -509,24 +394,21 @@ class Redis implements \MvcCore\Ext\ICache {
 					if ($keysToRemove === NULL) continue;
 					array_unshift($keysToRemove, $cacheTag);
 					call_user_func_array(
-						[$this->redis, 'sRem'],
+						[$this->provider, 'sRem'],
 						$keysToRemove
 					);
 				}
 			}
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $deletedKeysCount;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  string|array $tags
 	 * @return int
 	 */
@@ -543,53 +425,48 @@ class Redis implements \MvcCore\Ext\ICache {
 		$keysToDelete = [];
 		foreach ($tagsArr as $tag) {
 			$cacheTag = self::TAG_PREFIX . $tag;
-			$keysToDelete[] = $cacheTag;
-			$keysToDeleteLocal = $this->redis->sMembers($cacheTag);
-			$keysToDelete = array_merge($keysToDelete, $keysToDeleteLocal);
+			$keysToDelete[$cacheTag] = TRUE;
+			$keys2DeleteLocal = $this->provider->sMembers($cacheTag);
+			foreach ($keys2DeleteLocal as $key2DeleteLocal)
+				$keysToDelete[$key2DeleteLocal] = TRUE;
 		}
 		$deletedKeysCount = 0;
 		if (count($keysToDelete) > 0) {
 			try {
 				$deletedKeysCount = call_user_func_array(
-					[$this->redis, 'del'],
-					$keysToDelete
+					[$this->provider, 'del'],
+					array_keys($keysToDelete)
 				);
-			} catch (\Throwable $e) {
-				if ($this->application->GetEnvironment()->IsDevelopment()) {
-					throw $e;
-				} else {
-					$debugClass = $this->application->GetDebugClass();
-					$debugClass::Log($e);
-				}
+			} catch (\Exception $e1) { // backward compatibility
+				$this->exceptionHandler($e1);
+			} catch (\Throwable $e2) {
+				$this->exceptionHandler($e2);
 			}
 		}
 		return $deletedKeysCount;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @param  string $key
-	 * @return int
+	 * @return bool
 	 */
 	public function Has ($key) {
-		$result = 0;
+		$result = FALSE;
 		if (!$this->enabled) return $result;
 		try {
-			$result = $this->redis->exists($key);
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+			$result = $this->provider->exists($key) === 1;
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
 
 	/**
-	 * @inheritDocs
-	 * @param  \string[] $key
+	 * @inheritDoc
+	 * @param  string|\string[] $keys
 	 * @return int
 	 */
 	public function HasMultiple ($keys) {
@@ -605,36 +482,30 @@ class Redis implements \MvcCore\Ext\ICache {
 		}
 		try {
 			$result = call_user_func_array(
-				[$this->redis, 'exists'],
+				[$this->provider, 'exists'],
 				$keysArr
 			);
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
 
 	/**
-	 * @inheritDocs
+	 * @inheritDoc
 	 * @return bool
 	 */
 	public function Clear () {
 		$result = FALSE;
 		if (!$this->enabled) return $result;
 		try {
-			$result = $this->redis->flushDb();
-		} catch (\Throwable $e) {
-			if ($this->application->GetEnvironment()->IsDevelopment()) {
-				throw $e;
-			} else {
-				$debugClass = $this->application->GetDebugClass();
-				$debugClass::Log($e);
-			}
+			$result = $this->provider->flushDb();
+		} catch (\Exception $e1) { // backward compatibility
+			$this->exceptionHandler($e1);
+		} catch (\Throwable $e2) {
+			$this->exceptionHandler($e2);
 		}
 		return $result;
 	}
