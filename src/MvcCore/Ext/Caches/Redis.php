@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.0';
+	const VERSION = '5.2.1';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -50,7 +50,7 @@ implements	\MvcCore\Ext\ICache {
 		\MvcCore\Ext\ICache::CONNECTION_TIMEOUT		=> 0.5, // in seconds
 		\MvcCore\Ext\ICache::PROVIDER_CONFIG		=> [
 			'\Redis::OPT_SERIALIZER'				=> '\Redis::SERIALIZER_IGBINARY', // PHP serializer used if not available
-			'\Redis::OPT_READ_TIMEOUT'				=> 0.01,  // in seconds
+			'\Redis::OPT_READ_TIMEOUT'				=> 0.05,  // in seconds
 			'\Redis::OPT_MAX_RETRIES'				=> 5,
 		]
 	];
@@ -285,6 +285,8 @@ implements	\MvcCore\Ext\ICache {
 			} else if ($notFoundCallback !== NULL) {
 				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 			}
+		} catch (\RedisException $e) {
+			$result = call_user_func_array($notFoundCallback, [$this, $key]);
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -335,6 +337,8 @@ implements	\MvcCore\Ext\ICache {
 				} else if ($notFoundCallback !== NULL) {
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 				}
+			} catch (\RedisException $e) {
+				$result = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 			} catch (\Exception $e1) { // backward compatibility
 				$results[$index] = NULL;
 				$this->exceptionHandler($e1);
