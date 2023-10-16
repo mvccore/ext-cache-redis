@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.1';
+	const VERSION = '5.2.2';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -286,7 +286,8 @@ implements	\MvcCore\Ext\ICache {
 				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 			}
 		} catch (\RedisException $e) {
-			$result = call_user_func_array($notFoundCallback, [$this, $key]);
+			if ($notFoundCallback !== NULL)
+				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -338,7 +339,8 @@ implements	\MvcCore\Ext\ICache {
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 				}
 			} catch (\RedisException $e) {
-				$result = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
+				if ($notFoundCallback !== NULL)
+					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 			} catch (\Exception $e1) { // backward compatibility
 				$results[$index] = NULL;
 				$this->exceptionHandler($e1);
