@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.2';
+	const VERSION = '5.2.3';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -210,6 +210,7 @@ implements	\MvcCore\Ext\ICache {
 				foreach ($cacheTags as $tag)
 					$this->provider->sAdd(self::TAG_PREFIX . $tag, $key);
 			$result = TRUE;
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -248,6 +249,7 @@ implements	\MvcCore\Ext\ICache {
 				}
 			}
 			$result = TRUE;
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -362,6 +364,7 @@ implements	\MvcCore\Ext\ICache {
 		$deletedKeysCount = 0;
 		try {
 			$deletedKeysCount = $this->provider->del($key);
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -405,6 +408,7 @@ implements	\MvcCore\Ext\ICache {
 					);
 				}
 			}
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -462,6 +466,7 @@ implements	\MvcCore\Ext\ICache {
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->provider->exists($key) === 1;
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -491,6 +496,7 @@ implements	\MvcCore\Ext\ICache {
 				[$this->provider, 'exists'],
 				$keysArr
 			);
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -508,6 +514,7 @@ implements	\MvcCore\Ext\ICache {
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->provider->flushDb();
+		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
