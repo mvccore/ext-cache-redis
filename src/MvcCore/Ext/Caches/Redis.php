@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.3';
+	const VERSION = '5.2.4';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -151,7 +151,7 @@ implements	\MvcCore\Ext\ICache {
 		$redisConstBegin = '\Redis::';
 		foreach ($provConfigDefault as $constStr => $rawValue) {
 			$const = constant($constStr);
-			if (!isset($provConfig[$const])) {
+			if (!isset($provConfig[$const]) && !isset($provConfig[$constStr])) {
 				if (is_string($rawValue) && strpos($rawValue, $redisConstBegin) === 0) {
 					if (!defined($rawValue))
 						continue;
@@ -162,10 +162,19 @@ implements	\MvcCore\Ext\ICache {
 				$provConfig[$const] = $value;
 			}
 		}
-		if (!isset($provConfig[\Redis::OPT_SERIALIZER]))
+		if (!isset($provConfig[\Redis::OPT_SERIALIZER]) && !isset($provConfig['\Redis::OPT_SERIALIZER']))
 			$provConfig[\Redis::OPT_SERIALIZER] = \Redis::SERIALIZER_PHP;
-		foreach ($provConfig as $provOptKey => $provOptVal)
+		foreach ($provConfig as $provOptKey => $provOptVal) {
+			if (is_string($provOptKey) && strpos($provOptKey, $redisConstBegin) === 0) {
+				if (defined($provOptKey))
+					$provOptKey = constant($provOptKey);
+			}
+			if (is_string($provOptVal) && strpos($provOptVal, $redisConstBegin) === 0) {
+				if (defined($provOptVal))
+					$provOptVal = constant($provOptVal);
+			}
 			$this->provider->setOption($provOptKey, $provOptVal);
+		}
 	}
 	
 	/**
