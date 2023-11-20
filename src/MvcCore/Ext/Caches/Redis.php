@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.5';
+	const VERSION = '5.2.6';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -220,7 +220,6 @@ implements	\MvcCore\Ext\ICache {
 				foreach ($cacheTags as $tag)
 					$this->provider->sAdd(self::TAG_PREFIX . $tag, $key);
 			$result = TRUE;
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -259,7 +258,6 @@ implements	\MvcCore\Ext\ICache {
 				}
 			}
 			$result = TRUE;
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -297,13 +295,14 @@ implements	\MvcCore\Ext\ICache {
 			} else if ($notFoundCallback !== NULL) {
 				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 			}
-		} catch (\RedisException $e) {
-			if ($notFoundCallback !== NULL)
-				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
+			if ($notFoundCallback !== NULL)
+				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 		} catch (\Throwable $e2) {
 			$this->exceptionHandler($e2);
+			if ($notFoundCallback !== NULL)
+				$result = call_user_func_array($notFoundCallback, [$this, $key]);
 		}
 		return $result;
 	}
@@ -350,15 +349,16 @@ implements	\MvcCore\Ext\ICache {
 				} else if ($notFoundCallback !== NULL) {
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 				}
-			} catch (\RedisException $e) {
+			} catch (\Exception $e1) { // backward compatibility
+				$this->exceptionHandler($e1);
+				$results[$index] = NULL;
 				if ($notFoundCallback !== NULL)
 					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
-			} catch (\Exception $e1) { // backward compatibility
-				$results[$index] = NULL;
-				$this->exceptionHandler($e1);
 			} catch (\Throwable $e2) {
-				$results[$index] = NULL;
 				$this->exceptionHandler($e2);
+				$results[$index] = NULL;
+				if ($notFoundCallback !== NULL)
+					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 			}
 		}
 		return $results;
@@ -374,7 +374,6 @@ implements	\MvcCore\Ext\ICache {
 		$deletedKeysCount = 0;
 		try {
 			$deletedKeysCount = $this->provider->del($key);
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -418,7 +417,6 @@ implements	\MvcCore\Ext\ICache {
 					);
 				}
 			}
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -476,7 +474,6 @@ implements	\MvcCore\Ext\ICache {
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->provider->exists($key) === 1;
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -506,7 +503,6 @@ implements	\MvcCore\Ext\ICache {
 				[$this->provider, 'exists'],
 				$keysArr
 			);
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
@@ -524,7 +520,6 @@ implements	\MvcCore\Ext\ICache {
 		if (!$this->enabled) return $result;
 		try {
 			$result = $this->provider->flushDb();
-		} catch (\RedisException $e) {
 		} catch (\Exception $e1) { // backward compatibility
 			$this->exceptionHandler($e1);
 		} catch (\Throwable $e2) {
