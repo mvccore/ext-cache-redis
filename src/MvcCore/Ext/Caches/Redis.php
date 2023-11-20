@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.4';
+	const VERSION = '5.2.5';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -150,6 +150,7 @@ implements	\MvcCore\Ext\ICache {
 		$provConfigDefault = static::$defaults[$provKey];
 		$redisConstBegin = '\Redis::';
 		foreach ($provConfigDefault as $constStr => $rawValue) {
+			if (!defined($constStr)) continue;
 			$const = constant($constStr);
 			if (!isset($provConfig[$const]) && !isset($provConfig[$constStr])) {
 				if (is_string($rawValue) && strpos($rawValue, $redisConstBegin) === 0) {
