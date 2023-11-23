@@ -39,7 +39,7 @@ implements	\MvcCore\Ext\ICache {
 	 * Comparison by PHP function version_compare();
 	 * @see http://php.net/manual/en/function.version-compare.php
 	 */
-	const VERSION = '5.2.6';
+	const VERSION = '5.2.7';
 
 	/** @var array */
 	protected static $defaults	= [
@@ -351,14 +351,8 @@ implements	\MvcCore\Ext\ICache {
 				}
 			} catch (\Exception $e1) { // backward compatibility
 				$this->exceptionHandler($e1);
-				$results[$index] = NULL;
-				if ($notFoundCallback !== NULL)
-					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 			} catch (\Throwable $e2) {
 				$this->exceptionHandler($e2);
-				$results[$index] = NULL;
-				if ($notFoundCallback !== NULL)
-					$results[$index] = call_user_func_array($notFoundCallback, [$this, $keys[$index]]);
 			}
 		}
 		return $results;
